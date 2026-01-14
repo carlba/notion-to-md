@@ -112,6 +112,9 @@ export class NotionExporter {
       const title = this.getPageTitle(page);
       console.log(`Exporting: ${title}`);
 
+      // Get child pages first to determine if we need to append links
+      const children = await this.getChildPages(pageId);
+
       // Convert page content to markdown
       const mdBlocks = await this.n2m.pageToMarkdown(pageId);
       const mdString = this.n2m.toMarkdownString(mdBlocks);
@@ -121,17 +124,23 @@ export class NotionExporter {
       const filePath = path.join(parentDir, `${fileName}.md`);
 
       // Process images in the markdown
-      const processedMarkdown = await this.processImages(
+      let processedMarkdown = await this.processImages(
         mdString.parent,
-        parentDir,
-        fileName
+        parentDir
       );
+
+      // If there are child pages, append a list of links to them
+      if (children.length > 0) {
+        processedMarkdown += '\n\n## Subnotes\n\n';
+        for (const child of children) {
+          const childTitle = this.getPageTitle(child);
+          const childFileName = this.sanitizeFileName(childTitle);
+          processedMarkdown += `- [${childTitle}](./${fileName}/${childFileName}.md)\n`;
+        }
+      }
 
       // Write markdown file
       await fs.writeFile(filePath, processedMarkdown, 'utf-8');
-
-      // Get child pages
-      const children = await this.getChildPages(pageId);
 
       if (children.length > 0) {
         // Create directory for child pages
@@ -241,8 +250,7 @@ export class NotionExporter {
    */
   private async processImages(
     markdown: string,
-    parentDir: string,
-    fileName: string
+    parentDir: string
   ): Promise<string> {
     // Regular expression to match markdown images: ![alt](url)
     const imageRegex = /!\[([^\]]*)\]\(([^)]+)\)/g;
@@ -252,8 +260,8 @@ export class NotionExporter {
       return markdown;
     }
 
-    // Create images directory
-    const imagesDir = path.join(parentDir, fileName, 'images');
+    // Create images directory at the same level as the markdown file
+    const imagesDir = path.join(parentDir, 'images');
     await fs.mkdir(imagesDir, { recursive: true });
 
     let processedMarkdown = markdown;
@@ -283,7 +291,7 @@ export class NotionExporter {
         await this.downloadImage(imageUrl, localImagePath);
 
         // Update markdown to use relative path
-        const relativeImagePath = `./${fileName}/images/${imageFileName}`;
+        const relativeImagePath = `./images/${imageFileName}`;
         const newImageMarkdown = `![${altText}](${relativeImagePath})`;
         processedMarkdown = processedMarkdown.replace(fullMatch, newImageMarkdown);
 
