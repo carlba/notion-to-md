@@ -33,7 +33,12 @@ export class NotionExporter {
 
   constructor(config: ExporterConfig) {
     this.notion = new Client({ auth: config.notionToken });
-    this.n2m = new NotionToMarkdown({ notionClient: this.notion });
+    this.n2m = new NotionToMarkdown({ 
+      notionClient: this.notion,
+      config: {
+        parseChildPages: false, // Don't include child page content in parent
+      }
+    });
     this.outputDir = config.outputDir;
     this.rootPageId = config.rootPageId;
   }
@@ -278,8 +283,15 @@ export class NotionExporter {
           continue;
         }
 
+        // Only download Notion-hosted images
+        const urlObj = new URL(imageUrl);
+        if (!urlObj.hostname.includes('notion.so')) {
+          console.log(`  Skipping non-Notion image: ${imageUrl}`);
+          continue;
+        }
+
         // Extract file extension from URL or use default
-        const urlPath = new URL(imageUrl).pathname;
+        const urlPath = urlObj.pathname;
         const extMatch = urlPath.match(/\.([a-zA-Z0-9]+)(\?|$)/);
         const ext = extMatch ? extMatch[1] : 'png';
 

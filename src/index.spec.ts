@@ -111,7 +111,7 @@ describe('NotionExporter', () => {
       });
 
       const markdown =
-        '# Title\n\n![Alt text](https://example.com/image.png)\n\nSome text.';
+        '# Title\n\n![Alt text](https://www.notion.so/image.png)\n\nSome text.';
 
       // Mock the downloadImage method to avoid actual downloads
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -126,7 +126,7 @@ describe('NotionExporter', () => {
 
       const result = await processImages(markdown, '/tmp');
       expect(result).toContain('./images/image-1.png');
-      expect(result).not.toContain('https://example.com/image.png');
+      expect(result).not.toContain('https://www.notion.so/image.png');
     });
 
     it('should handle multiple images', async () => {
@@ -136,7 +136,7 @@ describe('NotionExporter', () => {
       });
 
       const markdown =
-        '![Image 1](https://example.com/img1.jpg)\n![Image 2](https://example.com/img2.png)';
+        '![Image 1](https://www.notion.so/img1.jpg)\n![Image 2](https://www.notion.so/img2.png)';
 
       // Mock the downloadImage method
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -154,6 +154,38 @@ describe('NotionExporter', () => {
       expect(result).toContain('./images/image-2.png');
     });
 
+    it('should skip non-Notion-hosted images', async () => {
+      const exporter = new NotionExporter({
+        notionToken: 'test',
+        outputDir: './test',
+      });
+
+      const markdown =
+        '![Notion image](https://www.notion.so/image.png)\n![External](https://example.com/remote.png)';
+
+      // Mock the downloadImage method
+      const downloadSpy = vi
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .spyOn(exporter as any, 'downloadImage')
+        .mockResolvedValue(undefined);
+
+      const processImages = (
+        md: string,
+        dir: string
+      ): Promise<string> =>
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (exporter as any).processImages(md, dir) as Promise<string>;
+
+      const result = await processImages(markdown, '/tmp');
+      
+      // Notion-hosted image should be downloaded
+      expect(result).toContain('./images/image-1.png');
+      // External image should be kept as-is
+      expect(result).toContain('https://example.com/remote.png');
+      // Download should only be called once for the Notion image
+      expect(downloadSpy).toHaveBeenCalledTimes(1);
+    });
+
     it('should skip non-HTTP image URLs', async () => {
       const exporter = new NotionExporter({
         notionToken: 'test',
@@ -161,7 +193,7 @@ describe('NotionExporter', () => {
       });
 
       const markdown =
-        '![Local image](./local/image.png)\n![Remote](https://example.com/remote.png)';
+        '![Local image](./local/image.png)\n![Remote](https://www.notion.so/remote.png)';
 
       // Mock the downloadImage method
       const downloadSpy = vi
@@ -180,9 +212,9 @@ describe('NotionExporter', () => {
       
       // Should keep local path unchanged
       expect(result).toContain('./local/image.png');
-      // Should update remote path
+      // Should update Notion-hosted path
       expect(result).toContain('./images/image-1.png');
-      // Download should only be called once for the remote image
+      // Download should only be called once for the Notion image
       expect(downloadSpy).toHaveBeenCalledTimes(1);
     });
   });
