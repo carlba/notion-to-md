@@ -285,7 +285,9 @@ export class NotionExporter {
 
         // Only download Notion-hosted images
         const urlObj = new URL(imageUrl);
-        if (!urlObj.hostname.includes('notion.so')) {
+        const isNotionHosted = urlObj.hostname === 'notion.so' || 
+                               urlObj.hostname.endsWith('.notion.so');
+        if (!isNotionHosted) {
           console.log(`  Skipping non-Notion image: ${imageUrl}`);
           continue;
         }
