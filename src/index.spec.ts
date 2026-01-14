@@ -95,13 +95,12 @@ describe('NotionExporter', () => {
       const markdown = '# Title\n\nSome text without images.';
       const processImages = (
         md: string,
-        dir: string,
-        file: string
+        dir: string
       ): Promise<string> =>
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (exporter as any).processImages(md, dir, file) as Promise<string>;
+        (exporter as any).processImages(md, dir) as Promise<string>;
 
-      const result = await processImages(markdown, '/tmp', 'test');
+      const result = await processImages(markdown, '/tmp');
       expect(result).toBe(markdown);
     });
 
@@ -120,14 +119,13 @@ describe('NotionExporter', () => {
 
       const processImages = (
         md: string,
-        dir: string,
-        file: string
+        dir: string
       ): Promise<string> =>
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (exporter as any).processImages(md, dir, file) as Promise<string>;
+        (exporter as any).processImages(md, dir) as Promise<string>;
 
-      const result = await processImages(markdown, '/tmp', 'test');
-      expect(result).toContain('./test/images/image-1.png');
+      const result = await processImages(markdown, '/tmp');
+      expect(result).toContain('./images/image-1.png');
       expect(result).not.toContain('https://example.com/image.png');
     });
 
@@ -146,15 +144,14 @@ describe('NotionExporter', () => {
 
       const processImages = (
         md: string,
-        dir: string,
-        file: string
+        dir: string
       ): Promise<string> =>
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (exporter as any).processImages(md, dir, file) as Promise<string>;
+        (exporter as any).processImages(md, dir) as Promise<string>;
 
-      const result = await processImages(markdown, '/tmp', 'test');
-      expect(result).toContain('./test/images/image-1.jpg');
-      expect(result).toContain('./test/images/image-2.png');
+      const result = await processImages(markdown, '/tmp');
+      expect(result).toContain('./images/image-1.jpg');
+      expect(result).toContain('./images/image-2.png');
     });
 
     it('should skip non-HTTP image URLs', async () => {
@@ -167,25 +164,24 @@ describe('NotionExporter', () => {
         '![Local image](./local/image.png)\n![Remote](https://example.com/remote.png)';
 
       // Mock the downloadImage method
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const downloadSpy = vi
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .spyOn(exporter as any, 'downloadImage')
         .mockResolvedValue(undefined);
 
       const processImages = (
         md: string,
-        dir: string,
-        file: string
+        dir: string
       ): Promise<string> =>
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (exporter as any).processImages(md, dir, file) as Promise<string>;
+        (exporter as any).processImages(md, dir) as Promise<string>;
 
-      const result = await processImages(markdown, '/tmp', 'test');
+      const result = await processImages(markdown, '/tmp');
       
       // Should keep local path unchanged
       expect(result).toContain('./local/image.png');
       // Should update remote path
-      expect(result).toContain('./test/images/image-1.png');
+      expect(result).toContain('./images/image-1.png');
       // Download should only be called once for the remote image
       expect(downloadSpy).toHaveBeenCalledTimes(1);
     });
