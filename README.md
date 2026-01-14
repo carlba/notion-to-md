@@ -1,86 +1,154 @@
-# typescript-template
+# notion-to-md
 
-A template for a Typescript repository
+Export your Notion workspace to a structured collection of markdown files.
 
-## ESLint Setup
+## Features
 
-```javascript
-module.exports = {
-  env: {
-    es2022: true,
-    node: true,
-  },
-  overrides: [
-    {
-      files: ['**/*.js'],
-      extends: ['eslint:recommended'],
-      // https://eslint.org/docs/v8.x/use/configure/language-options#specifying-parser-options
-      parserOptions: {
-        ecmaVersion: '2022',
-      },
-    },
-    {
-      files: ['src**/*.ts'],
-      extends: [
-        'eslint:recommended',
-        'plugin:@typescript-eslint/recommended-type-checked',
-        'plugin:@typescript-eslint/stylistic-type-checked',
-      ],
-      plugins: ['@typescript-eslint'],
-      parser: '@typescript-eslint/parser',
-      parserOptions: {
-        project: true,
-      },
-    },
-  ],
-};
+- 🚀 Export all pages from your Notion workspace or start from a specific page
+- 📁 Preserves hierarchical page structure in the file system
+- 📝 Converts Notion blocks to clean markdown format
+- 🔄 Handles nested pages automatically
+
+## Prerequisites
+
+1. **Notion Integration Token**: You need to create a Notion integration to get an API token
+   - Go to [https://www.notion.so/my-integrations](https://www.notion.so/my-integrations)
+   - Click "New integration"
+   - Give it a name (e.g., "Markdown Exporter")
+   - Copy the "Internal Integration Token"
+
+2. **Grant Access**: Share your Notion pages with the integration
+   - Open the page(s) you want to export in Notion
+   - Click "Share" in the top right
+   - Invite your integration by name
+   - The integration can only access pages that have been shared with it
+
+## Setup
+
+1. Clone the repository:
+```bash
+git clone https://github.com/carlba/notion-to-md.git
+cd notion-to-md
 ```
 
-The newest version of ESLint is using the new `flatconfig` format. Even though it looks cool sadly
+2. Install dependencies:
+```bash
+npm install
+```
 
-the adaptation of it in the community has not yet reached to the point where it makes sense to start
+3. Configure environment variables:
+```bash
+cp .env.example .env
+```
 
-using it. That is why this repo uses the `8.57.0` version which still defaults to the old config
+4. Edit `.env` and add your Notion integration token:
+```env
+NOTION_TOKEN=secret_your_notion_integration_token_here
+OUTPUT_DIR=./notion-export  # Optional: customize output directory
+ROOT_PAGE_ID=               # Optional: specific page ID to start from
+```
 
-file format. It has some consequences.
+## Usage
 
-1. The file has to be in CommonJS format since version `8.57.0` doesn't support anything else
-2. The support both JS and Typescript by using the overrides property.
-3. Note that the `module.exports.overrides[0].parserOptions` needs to have a higher ECMA version
+### Export all accessible pages:
 
-   specified as the default is `ES5`. For the Typescript configuration this is not needed as it
+```bash
+npm start
+```
 
-   reads the settings from the `tsconfig` when `module.exports.overrides[1].parserOptions.project`
+This will export all pages that your integration has access to into the `./notion-export` directory (or the directory specified in `OUTPUT_DIR`).
 
-   is set to `true`
+### Export from a specific page:
 
-## Why is nodemon Used Over tsx watch
+Set the `ROOT_PAGE_ID` in your `.env` file to a specific page ID. You can find the page ID in the Notion URL:
 
-Because `tsx watch` does not support watching .env file.
+```
+https://www.notion.so/My-Page-abc123def456?v=...
+                            ^^^^^^^^^^^^^^^^
+                            This is the page ID
+```
 
-## Migration from Jest to Vitest
+Then run:
+```bash
+npm start
+```
 
-1. Uninstall Jest
+### Development mode:
 
-   ```bash
-   npm uninstall jest @types/jest
-   npm install -D vitest
-   ```
+```bash
+npm run start:dev
+```
 
-1. Configure Vitest
+## Output Structure
 
-   [vitest config in the repo](vitest.config.ts)
+The script will create a directory structure that mirrors your Notion page hierarchy:
 
-1. Update package.json with test commands referencing `vitest` rather than `jest`
+```
+notion-export/
+├── Page-1.md
+├── Page-2.md
+│   ├── Child-Page-1.md
+│   └── Child-Page-2.md
+└── Page-3.md
+    └── Nested-Page.md
+```
 
-   ```json
-   {
-     "scripts": {
-       "test": "vitest run",
-       "test:watch": "vitest watch",
-       "test:coverage": "vitest run --coverage"
-     }
-   }
-   ```
+Each page is exported as a markdown file, and if a page has child pages, a directory with the page's name is created to hold those children.
 
-1. And ensure to add `import { describe, it, expect } from 'vitest';` at the top of test cases.
+## Development
+
+### Build
+
+```bash
+npm run build
+```
+
+### Run Tests
+
+```bash
+npm test
+```
+
+### Run Tests in Watch Mode
+
+```bash
+npm run test:watch
+```
+
+### Lint
+
+```bash
+npm run lint
+```
+
+### Format Code
+
+```bash
+npm run format
+```
+
+## Troubleshooting
+
+### "Error: NOTION_TOKEN environment variable is required"
+
+Make sure you have created a `.env` file with your Notion integration token.
+
+### "Error 401: Unauthorized"
+
+- Verify that your integration token is correct
+- Make sure you've shared the pages you want to export with your integration
+
+### "Error 404: Not Found"
+
+- The page ID might be incorrect
+- The page might not be shared with your integration
+
+### No pages exported
+
+- Make sure you've shared at least one page with your integration
+- Check that your integration has the correct permissions
+
+## License
+
+UNLICENSED
+
