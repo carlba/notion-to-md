@@ -1,7 +1,10 @@
 import { Client } from '@notionhq/client';
 import { NotionToMarkdown } from 'notion-to-md';
 import * as fs from 'fs/promises';
+import * as fsSync from 'fs';
 import * as path from 'path';
+import * as https from 'https';
+import * as http from 'http';
 
 type PageObjectResponse = Extract<
   Awaited<ReturnType<Client['pages']['retrieve']>>,
@@ -117,8 +120,15 @@ export class NotionExporter {
       const fileName = this.sanitizeFileName(title);
       const filePath = path.join(parentDir, `${fileName}.md`);
 
+      // Process images in the markdown
+      const processedMarkdown = await this.processImages(
+        mdString.parent,
+        parentDir,
+        fileName
+      );
+
       // Write markdown file
-      await fs.writeFile(filePath, mdString.parent, 'utf-8');
+      await fs.writeFile(filePath, processedMarkdown, 'utf-8');
 
       // Get child pages
       const children = await this.getChildPages(pageId);
@@ -224,5 +234,110 @@ export class NotionExporter {
     page: PageObjectResponse | PartialPageObjectResponse
   ): page is PageObjectResponse {
     return 'properties' in page;
+  }
+
+  /**
+   * Process images in markdown: download them and update references
+   */
+  private async processImages(
+    markdown: string,
+    parentDir: string,
+    fileName: string
+  ): Promise<string> {
+    // Regular expression to match markdown images: ![alt](url)
+    const imageRegex = /!\[([^\]]*)\]\(([^)]+)\)/g;
+    const matches = [...markdown.matchAll(imageRegex)];
+
+    if (matches.length === 0) {
+      return markdown;
+    }
+
+    // Create images directory
+    const imagesDir = path.join(parentDir, fileName, 'images');
+    await fs.mkdir(imagesDir, { recursive: true });
+
+    let processedMarkdown = markdown;
+    let imageCounter = 1;
+
+    for (const match of matches) {
+      const fullMatch = match[0];
+      const altText = match[1];
+      const imageUrl = match[2];
+
+      try {
+        // Skip if it's already a local path
+        if (!imageUrl.startsWith('http://') && !imageUrl.startsWith('https://')) {
+          continue;
+        }
+
+        // Extract file extension from URL or use default
+        const urlPath = new URL(imageUrl).pathname;
+        const extMatch = urlPath.match(/\.([a-zA-Z0-9]+)(\?|$)/);
+        const ext = extMatch ? extMatch[1] : 'png';
+
+        // Create a safe filename for the image
+        const imageFileName = `image-${imageCounter}.${ext}`;
+        const localImagePath = path.join(imagesDir, imageFileName);
+        
+        // Download the image
+        await this.downloadImage(imageUrl, localImagePath);
+
+        // Update markdown to use relative path
+        const relativeImagePath = `./${fileName}/images/${imageFileName}`;
+        const newImageMarkdown = `![${altText}](${relativeImagePath})`;
+        processedMarkdown = processedMarkdown.replace(fullMatch, newImageMarkdown);
+
+        console.log(`  Downloaded image: ${imageFileName}`);
+        imageCounter++;
+      } catch (error) {
+        console.error(`  Failed to download image from ${imageUrl}:`, error);
+        // Keep the original URL if download fails
+      }
+    }
+
+    return processedMarkdown;
+  }
+
+  /**
+   * Download an image from a URL to a local path
+   */
+  private async downloadImage(url: string, filePath: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const protocol = url.startsWith('https') ? https : http;
+      
+      protocol.get(url, (response) => {
+        // Handle redirects
+        if (response.statusCode === 301 || response.statusCode === 302) {
+          const redirectUrl = response.headers.location;
+          if (redirectUrl) {
+            this.downloadImage(redirectUrl, filePath).then(resolve).catch(reject);
+            return;
+          }
+        }
+
+        if (response.statusCode !== 200) {
+          reject(new Error(`Failed to download image: ${response.statusCode}`));
+          return;
+        }
+
+        const fileStream = fsSync.createWriteStream(filePath);
+        response.pipe(fileStream);
+
+        fileStream.on('finish', () => {
+          fileStream.close();
+          resolve();
+        });
+
+        fileStream.on('error', (err: Error) => {
+          // Clean up failed download
+          fsSync.unlink(filePath, () => {
+            // Ignore unlink errors
+          });
+          reject(err);
+        });
+      }).on('error', (err: Error) => {
+        reject(err);
+      });
+    });
   }
 }
