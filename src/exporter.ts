@@ -20,6 +20,8 @@ export interface ExporterConfig {
 }
 
 export class NotionExporter {
+  private static readonly MAX_FILENAME_LENGTH = 200;
+  
   private readonly notion: Client;
   private readonly n2m: NotionToMarkdown;
   private readonly outputDir: string;
@@ -205,13 +207,14 @@ export class NotionExporter {
    * Sanitize filename to be filesystem-safe
    */
   private sanitizeFileName(fileName: string): string {
-    return fileName
-      .replace(/[<>:"/\\|?*]/g, '-') // Replace invalid chars
-      .replace(/\s+/g, '-') // Replace spaces with hyphens
-      .replace(/-+/g, '-') // Replace multiple hyphens with single
-      .replace(/^-|-$/g, '') // Remove leading/trailing hyphens
-      .substring(0, 200) // Limit length
-      || 'untitled';
+    return (
+      fileName
+        .replace(/[<>:"/\\|?*]/g, '-') // Replace invalid chars
+        .replace(/\s+/g, '-') // Replace spaces with hyphens
+        .replace(/-+/g, '-') // Replace multiple hyphens with single
+        .replace(/^-|-$/g, '') // Remove leading/trailing hyphens
+        .substring(0, NotionExporter.MAX_FILENAME_LENGTH) || 'untitled'
+    );
   }
 
   /**
